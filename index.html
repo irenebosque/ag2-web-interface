@@ -1,0 +1,201 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>AG2 Chat Test</title>
+</head>
+<body>
+    <h1>AG2 Chat Test</h1>
+    
+    <div>
+        <input type="text" id="messageInput" placeholder="Type your message" style="width: 400px;" onkeypress="handleKeyPress(event)">
+        <button onclick="sendMessage()">Send</button>
+    </div>
+    
+    <div id="messages" style="border: 1px solid #333; height: 400px; overflow-y: scroll; padding: 15px; margin-top: 10px; background: #f8f9fa; font-family: 'Consolas', monospace; line-height: 1.5;">
+    </div>
+
+    <style>
+        .event-text { color: #28a745; font-weight: bold; }
+        .event-group_chat_run_chat { color: #007bff; }
+        .event-using_auto_reply { color: #6c757d; font-size: 0.9em; }
+        .event-input_request { color: #dc3545; font-weight: bold; }
+        .event-waiting_for_input { color: #fd7e14; font-weight: bold; background: #fff3cd; padding: 5px; border-radius: 3px; }
+        .timestamp { color: #6c757d; font-size: 0.85em; }
+        .sender { color: #495057; font-weight: bold; }
+        .uuid { color: #adb5bd; font-size: 0.8em; }
+        .content { margin-left: 20px; padding: 5px; background: white; border-left: 3px solid #e9ecef; }
+        .user-message { background: #e3f2fd; border-left-color: #2196f3; }
+        .agent-message { background: #f3e5f5; border-left-color: #9c27b0; }
+    </style>
+
+    <script>
+        let chatActive = false;
+        let waitingForInput = false;
+
+        function handleKeyPress(event) {
+            if (event.key === 'Enter') {
+                sendMessage();
+            }
+        }
+
+        function sendMessage() {
+            const message = document.getElementById('messageInput').value;
+            if (!message) return;
+
+            if (!chatActive) {
+                startChat(message);
+            } else if (waitingForInput) {
+                sendInput(message);
+            }
+            
+            document.getElementById('messageInput').value = '';
+        }
+
+        function startChat(message) {
+            chatActive = true;
+            
+            fetch('/chat', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({
+                    messages: [{ role: 'user', content: message }]
+                })
+            }).then(response => {
+                const reader = response.body.getReader();
+                
+                function readStream() {
+                    reader.read().then(({ done, value }) => {
+                        if (done) {
+                            chatActive = false;
+                            waitingForInput = false;
+                            return;
+                        }
+                        
+                        const chunk = new TextDecoder().decode(value);
+                        const lines = chunk.split('\n');
+                        
+                        lines.forEach(line => {
+                            if (line.startsWith('data: ')) {
+                                const data = line.substring(6);
+                                if (data.trim()) {
+                                    const event = JSON.parse(data);
+                                    addFormattedEvent(event);
+                                    
+                                    if (event.type === 'waiting_for_input') {
+                                        waitingForInput = true;
+                                        addMessage('<div class="event-waiting_for_input">🔄 ESPERANDO TU RESPUESTA...</div>');
+                                    }
+                                }
+                            }
+                        });
+                        
+                        readStream();
+                    });
+                }
+                
+                readStream();
+            });
+        }
+
+        function sendInput(input) {
+            waitingForInput = false;
+            
+            fetch('/send_input', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({
+                    message: input
+                })
+            }).then(response => response.json())
+              .then(data => {
+                  addMessage(`<div class="content user-message">✅ <strong>Tu respuesta:</strong> ${input}</div>`);
+              });
+        }
+
+        function addFormattedEvent(event) {
+            const messagesDiv = document.getElementById('messages');
+            const timestamp = new Date().toLocaleTimeString();
+            let formattedMessage = '';
+
+            switch(event.type) {
+                case 'text':
+                    const senderInfo = extractSenderRecipient(event.content);
+                    const isUser = senderInfo.sender === 'user';
+                    const contentClass = isUser ? 'user-message' : 'agent-message';
+                    const icon = isUser ? '👤' : '🤖';
+                    
+                    formattedMessage = `
+                        <div style="margin: 10px 0;">
+                            <div class="timestamp">[${timestamp}]</div>
+                            <div class="event-text">${icon} <strong>${senderInfo.sender}</strong> → ${senderInfo.recipient}</div>
+                            <div class="content ${contentClass}">${senderInfo.content}</div>
+                        </div>`;
+                    break;
+                
+                case 'group_chat_run_chat':
+                    formattedMessage = `
+                        <div class="event-group_chat_run_chat">
+                            <span class="timestamp">[${timestamp}]</span> 
+                            🔄 <strong>Iniciando conversación</strong> - Agente activo: <em>${extractSpeaker(event.content)}</em>
+                        </div>`;
+                    break;
+                
+                case 'using_auto_reply':
+                    formattedMessage = `
+                        <div class="event-using_auto_reply">
+                            <span class="timestamp">[${timestamp}]</span> 
+                            ⚡ Auto-respuesta activada
+                        </div>`;
+                    break;
+                
+                case 'input_request':
+                    formattedMessage = `
+                        <div class="event-input_request">
+                            <span class="timestamp">[${timestamp}]</span> 
+                            ❓ <strong>Solicitud de entrada</strong>
+                        </div>`;
+                    break;
+                
+                default:
+                    formattedMessage = `
+                        <div>
+                            <span class="timestamp">[${timestamp}]</span> 
+                            📋 <strong>${event.type}</strong>: ${event.content || 'Sin contenido'}
+                        </div>`;
+            }
+
+            messagesDiv.innerHTML += formattedMessage;
+            messagesDiv.scrollTop = messagesDiv.scrollHeight;
+        }
+
+        function extractSenderRecipient(content) {
+            if (!content) return { sender: 'unknown', recipient: 'unknown', content: '' };
+            
+            const senderMatch = content.match(/sender='([^']+)'/);
+            const recipientMatch = content.match(/recipient='([^']+)'/);
+            const contentMatch = content.match(/content='([^']+)'/);
+            
+            return {
+                sender: senderMatch ? senderMatch[1] : 'unknown',
+                recipient: recipientMatch ? recipientMatch[1] : 'unknown',
+                content: contentMatch ? contentMatch[1] : content
+            };
+        }
+
+        function extractSpeaker(content) {
+            const speakerMatch = content.match(/speaker='([^']+)'/);
+            return speakerMatch ? speakerMatch[1] : 'unknown';
+        }
+
+        function addMessage(message) {
+            const messagesDiv = document.getElementById('messages');
+            messagesDiv.innerHTML += `<div>[${new Date().toLocaleTimeString()}] ${message}</div>`;
+            messagesDiv.scrollTop = messagesDiv.scrollHeight;
+        }
+    </script>
+</body>
+</html>
