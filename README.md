@@ -2,6 +2,10 @@
 
 A working implementation of AG2 (AutoGen 2.0) agents with a real-time web interface using **Server-Sent Events (SSE)** for agent-to-UI communication and **HTTP POST** for UI-to-agent communication.
 
+## 🎬 Demo Video
+
+https://github.com/irenebosque/ag2-web-interface/raw/master/assets/demo.mp4
+
 ## The Problem This Solves
 
 AG2 documentation and examples focus mainly on CLI usage. Integrating AG2 with web UIs requires handling async agent events and bidirectional communication, which isn't well documented. This project demonstrates a working solution using `a_run_group_chat` with event streaming.
