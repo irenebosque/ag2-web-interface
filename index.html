@@ -1,10 +1,10 @@
 <!DOCTYPE html>
 <html>
 <head>
-    <title>AG2 Chat Test</title>
+    <title>AG2 AutoPattern Chat Interface</title>
 </head>
 <body>
-    <h1>AG2 Chat Test</h1>
+    <h1>AG2 AutoPattern Chat Interface</h1>
     
     <div>
         <input type="text" id="messageInput" placeholder="Type your message" style="width: 400px;" onkeypress="handleKeyPress(event)">
@@ -85,7 +85,7 @@
                                     
                                     if (event.type === 'waiting_for_input') {
                                         waitingForInput = true;
-                                        addMessage('<div class="event-waiting_for_input">🔄 ESPERANDO TU RESPUESTA...</div>');
+                                        addMessage('<div class="event-waiting_for_input">🔄 WAITING FOR YOUR RESPONSE...</div>');
                                     }
                                 }
                             }
@@ -112,7 +112,7 @@
                 })
             }).then(response => response.json())
               .then(data => {
-                  addMessage(`<div class="content user-message">✅ <strong>Tu respuesta:</strong> ${input}</div>`);
+                  addMessage(`<div class="content user-message">✅ <strong>Your response:</strong> ${input}</div>`);
               });
         }
 
@@ -140,7 +140,7 @@
                     formattedMessage = `
                         <div class="event-group_chat_run_chat">
                             <span class="timestamp">[${timestamp}]</span> 
-                            🔄 <strong>Iniciando conversación</strong> - Agente activo: <em>${extractSpeaker(event.content)}</em>
+                            🔄 <strong>Starting conversation</strong> - Active agent: <em>${extractSpeaker(event.content)}</em>
                         </div>`;
                     break;
                 
@@ -148,7 +148,7 @@
                     formattedMessage = `
                         <div class="event-using_auto_reply">
                             <span class="timestamp">[${timestamp}]</span> 
-                            ⚡ Auto-respuesta activada
+                            ⚡ Auto-reply activated
                         </div>`;
                     break;
                 
@@ -156,7 +156,7 @@
                     formattedMessage = `
                         <div class="event-input_request">
                             <span class="timestamp">[${timestamp}]</span> 
-                            ❓ <strong>Solicitud de entrada</strong>
+                            ❓ <strong>Input request</strong>
                         </div>`;
                     break;
                 
@@ -164,7 +164,7 @@
                     formattedMessage = `
                         <div>
                             <span class="timestamp">[${timestamp}]</span> 
-                            📋 <strong>${event.type}</strong>: ${event.content || 'Sin contenido'}
+                            📋 <strong>${event.type}</strong>: ${event.content || 'No content'}
                         </div>`;
             }
 
