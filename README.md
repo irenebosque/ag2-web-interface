@@ -4,7 +4,10 @@ A working implementation of AG2 (AutoGen 2.0) agents with a real-time web interf
 
 ## 🎬 Demo Video
 
-https://github.com/irenebosque/ag2-web-interface/raw/master/assets/demo.mp4
+
+https://github.com/user-attachments/assets/3e5e83c0-7407-4529-b748-b45aee2a93fe
+
+
 
 ## The Problem This Solves
 
