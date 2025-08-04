@@ -16,6 +16,11 @@ import asyncio
 import json
 from ag2_agents import run_chat
 
+# Global state for context variables
+global_context_variables = {
+    "which_agent": "none"
+}
+
 
 async def process_chat(messages, input_queue):
     """
@@ -33,10 +38,11 @@ async def process_chat(messages, input_queue):
         AsyncGenerator: Event generator that yields SSE-formatted events
     """
     async def event_generator():
-        response = await run_chat(messages[-1]["content"])
+        # Use global context variables when running chat
+        response = await run_chat(messages[-1]["content"], context_variables=global_context_variables)
 
-        # Send initial context variables
-        yield f"data: {json.dumps({'type': 'context_variables', 'content': {'which_agent': 'none'}})}\n\n"
+        # Send current context variables
+        yield f"data: {json.dumps({'type': 'context_variables', 'content': global_context_variables})}\n\n"
 
         async for event in response.events:
             # Convert AG2 event to JSON-serializable dictionary
@@ -60,3 +66,9 @@ async def process_chat(messages, input_queue):
                 await event.content.respond(user_input)
 
     return event_generator()
+
+
+def update_context_variables(new_variables):
+    """Update global context variables - will be used by /update_context endpoint from ui"""
+    global global_context_variables
+    global_context_variables.update(new_variables)

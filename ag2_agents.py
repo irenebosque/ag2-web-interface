@@ -28,7 +28,7 @@ from autogen.llm_config import LLMConfig
 load_dotenv()
 
 
-async def run_chat(message, max_rounds=15, which_agent="none"):
+async def run_chat(message, max_rounds=15, context_variables=None):
     """
     Execute an AG2 agent conversation and return the response with events.
     
@@ -39,15 +39,16 @@ async def run_chat(message, max_rounds=15, which_agent="none"):
     Args:
         message: The initial user message to start the conversation
         max_rounds: Maximum number of conversation rounds (default: 15)
-        which_agent: Context variable for agent preference (default: "none")
+        context_variables: Dict of context variables (default: {"which_agent": "none"})
         
     Returns:
         AsyncRunResponse: AG2 response object containing async event stream
     """
-    # Create context variables with which_agent preference
-    context_variables = ContextVariables(data={
-        "which_agent": which_agent
-    })
+    # Create context variables - use defaults if none provided
+    if context_variables is None:
+        context_variables = {"which_agent": "none"}
+    
+    context = ContextVariables(data=context_variables)
     
     llm_config = LLMConfig(
         api_type="openai",
@@ -99,7 +100,7 @@ async def run_chat(message, max_rounds=15, which_agent="none"):
         agents=[triage_agent, tech_agent, general_agent],
         user_agent=user,
         group_manager_args={"llm_config": llm_config},
-        context_variables=context_variables,
+        context_variables=context,
     )
 
     # Execute the group chat - this returns an async response with event stream

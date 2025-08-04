@@ -19,7 +19,7 @@ from pydantic import BaseModel
 import uvicorn
 import asyncio
 
-from ag2_streaming_service import process_chat
+from ag2_streaming_service import process_chat, update_context_variables
 
 app = FastAPI(title="AG2 Web Interface", version="1.0.0")
 
@@ -43,6 +43,10 @@ class ChatRequest(BaseModel):
 class InputRequest(BaseModel):
     """Request model for user input responses during agent conversations"""
     message: str
+
+class ContextUpdateRequest(BaseModel):
+    """Request model for updating context variables"""
+    context_variables: dict
 
 # AG2 --> UI (real-time agent events and messages via SSE)
 @app.post("/chat")
@@ -79,6 +83,20 @@ async def send_input(data: InputRequest):
     """
     await input_queue.put(data.message)
     return {"status": "sent"}
+
+@app.post("/update_context")
+async def update_context(data: ContextUpdateRequest):
+    """
+    Update context variables from UI.
+    
+    Args:
+        data: Dictionary of context variables to update
+        
+    Returns:
+        dict: Confirmation that context was updated
+    """
+    update_context_variables(data.context_variables)
+    return {"status": "updated", "context_variables": data.context_variables}
 
 @app.get("/")
 async def test_page():
