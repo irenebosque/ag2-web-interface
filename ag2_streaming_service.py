@@ -35,6 +35,9 @@ async def process_chat(messages, input_queue):
     async def event_generator():
         response = await run_chat(messages[-1]["content"])
 
+        # Send initial context variables
+        yield f"data: {json.dumps({'type': 'context_variables', 'content': {'which_agent': 'none'}})}\n\n"
+
         async for event in response.events:
             # Convert AG2 event to JSON-serializable dictionary
             event_dict = {

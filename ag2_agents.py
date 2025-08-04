@@ -21,12 +21,14 @@ from dotenv import load_dotenv
 from autogen.agentchat.conversable_agent import ConversableAgent
 from autogen.agentchat.group.multi_agent_chat import a_run_group_chat
 from autogen.agentchat.group.patterns.auto import AutoPattern
+from autogen.agentchat.group import ContextVariables
+from autogen import UpdateSystemMessage
 from autogen.llm_config import LLMConfig
 
 load_dotenv()
 
 
-async def run_chat(message, max_rounds=15):
+async def run_chat(message, max_rounds=15, which_agent="none"):
     """
     Execute an AG2 agent conversation and return the response with events.
     
@@ -37,10 +39,16 @@ async def run_chat(message, max_rounds=15):
     Args:
         message: The initial user message to start the conversation
         max_rounds: Maximum number of conversation rounds (default: 15)
+        which_agent: Context variable for agent preference (default: "none")
         
     Returns:
         AsyncRunResponse: AG2 response object containing async event stream
     """
+    # Create context variables with which_agent preference
+    context_variables = ContextVariables(data={
+        "which_agent": which_agent
+    })
+    
     llm_config = LLMConfig(
         api_type="openai",
         model="gpt-4o-mini",
@@ -56,6 +64,16 @@ async def run_chat(message, max_rounds=15):
             identify whether it is a technical issue or a general question. Route
             technical issues to the tech agent and general questions to the general agent.
             Do not provide suggestions or answers, only route the query.""",
+            update_agent_state_before_reply=[
+                UpdateSystemMessage(
+                    "You are a triage agent. For each user query, "
+                    "identify whether it is a technical issue or a general question. "
+                    "Route technical issues to the tech agent and general questions to the general agent. "
+                    "Context: The user's preferred agent type is: {which_agent}. "
+                    "If the preference is not 'none', consider this when routing queries. "
+                    "Do not provide suggestions or answers, only route the query."
+                )
+            ],
         )
 
         # Specialist for technical issues and troubleshooting
@@ -81,6 +99,7 @@ async def run_chat(message, max_rounds=15):
         agents=[triage_agent, tech_agent, general_agent],
         user_agent=user,
         group_manager_args={"llm_config": llm_config},
+        context_variables=context_variables,
     )
 
     # Execute the group chat - this returns an async response with event stream

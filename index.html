@@ -6,6 +6,10 @@
 <body>
     <h1>AG2 AutoPattern Chat Interface</h1>
     
+    <div id="contextVariables">
+        Context variables: which_agent: loading...
+    </div>
+    
     <div>
         <input type="text" id="messageInput" placeholder="Type your message" style="width: 400px;" onkeypress="handleKeyPress(event)">
         <button onclick="sendMessage()">Send</button>
@@ -81,11 +85,16 @@
                                 const data = line.substring(6);
                                 if (data.trim()) {
                                     const event = JSON.parse(data);
-                                    addFormattedEvent(event);
                                     
-                                    if (event.type === 'waiting_for_input') {
-                                        waitingForInput = true;
-                                        addMessage('<div class="event-waiting_for_input">🔄 WAITING FOR YOUR RESPONSE...</div>');
+                                    if (event.type === 'context_variables') {
+                                        updateContextVariables(event.content);
+                                    } else {
+                                        addFormattedEvent(event);
+                                        
+                                        if (event.type === 'waiting_for_input') {
+                                            waitingForInput = true;
+                                            addMessage('<div class="event-waiting_for_input">🔄 WAITING FOR YOUR RESPONSE...</div>');
+                                        }
                                     }
                                 }
                             }
@@ -189,6 +198,17 @@
         function extractSpeaker(content) {
             const speakerMatch = content.match(/speaker='([^']+)'/);
             return speakerMatch ? speakerMatch[1] : 'unknown';
+        }
+
+        function updateContextVariables(contextData) {
+            const contextDiv = document.getElementById('contextVariables');
+            let contextText = 'Context variables: ';
+            
+            for (const [key, value] of Object.entries(contextData)) {
+                contextText += `${key}: ${value} `;
+            }
+            
+            contextDiv.textContent = contextText;
         }
 
         function addMessage(message) {
