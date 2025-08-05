@@ -1,0 +1,2 @@
+1- Reset router
+2- Wait for connection

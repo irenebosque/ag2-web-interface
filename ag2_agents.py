@@ -29,10 +29,31 @@ from typing import Annotated
 load_dotenv()
 
 
-def tech_tool(message: Annotated[str, "A message to display"]) -> str:
-    """Simple tech tool that prints a message."""
-    print(f"⚙️Tech tool executed: {message}")
-    return f"Tool result: {message}"
+def manage_tech_file(
+    action: Annotated[str, "Action to perform: 'read' or 'write'"],
+    content: Annotated[str, "Content to write (only needed for 'write' action)"] = ""
+) -> str:
+    """Manage tech_file.txt - read current content or write new content"""
+    file_path = "/mnt/c/Users/ilopez/Desktop/Proyectos/General/General-LOCAL/ag2-ui/tech_file.txt"
+    
+    try:
+        if action.lower() == "read":
+            with open(file_path, 'r', encoding='utf-8') as f:
+                file_content = f.read()
+            print(f"⚙️ Tech tool - Reading file: {file_path}")
+            return f"File content:\n{file_content}"
+        
+        elif action.lower() == "write":
+            with open(file_path, 'w', encoding='utf-8') as f:
+                f.write(content)
+            print(f"⚙️ Tech tool - Writing to file: {file_path}")
+            return f"Successfully wrote to file:\n{content}"
+        
+        else:
+            return f"Error: Invalid action '{action}'. Use 'read' or 'write'"
+            
+    except Exception as e:
+        return f"Error: {str(e)}"
 
 
 async def run_chat(message, max_rounds=15, context_variables=None):
@@ -88,8 +109,10 @@ async def run_chat(message, max_rounds=15, context_variables=None):
         tech_agent = ConversableAgent(
             name="tech_agent",
             system_message="""You solve technical problems like software bugs
-            and hardware issues. You have access to a tech_tool that can help you.""",
-            functions=[tech_tool],
+            and hardware issues. You have access to manage_tech_file tool that can read from and write to 
+            a tech_file.txt. Use manage_tech_file with action='read' to see the current file content, 
+            and action='write' with content parameter to modify the file based on user requests.""",
+            functions=[manage_tech_file],
         )
 
         # Specialist for general, non-technical support questions
