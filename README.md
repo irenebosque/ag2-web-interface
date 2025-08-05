@@ -139,10 +139,27 @@ Agent needs input → SSE "waiting_for_input" → User types → POST /send_inpu
 
 The system implements a triage pattern:
 
-- **triage_agent**: Routes queries to appropriate specialists
-- **tech_agent**: Handles technical issues and troubleshooting  
+- **triage_agent**: Routes queries to appropriate specialists based on context variables
+- **tech_agent**: Handles technical issues and troubleshooting with file management capabilities
 - **general_agent**: Handles non-technical support questions
 - **user**: Human user with `human_input_mode="ALWAYS"` for interactive conversations
+
+### 🔧 Tech Agent Tools
+
+The tech_agent includes a powerful file management tool (`manage_tech_file`) that can:
+
+- **`action='read'`**: Read current file content to understand the state
+- **`action='write'`**: Completely overwrite file with new content
+- **`action='append'`**: Add new lines to the end of the file  
+- **`action='edit'`**: Replace specific text (find and replace functionality)
+
+**Usage Examples:**
+- "Read the tech file" → Agent uses `action='read'`
+- "Add a new troubleshooting step" → Agent reads first, then uses `action='append'`
+- "Remove the line about restarting" → Agent reads first, then uses `action='edit'` with `find_text`
+- "Rewrite the entire procedure" → Agent uses `action='write'`
+
+The agent is configured to **always read the file first** before making any modifications, ensuring informed decisions about changes.
 
 ## 🛠️ Setup and Installation
 
@@ -159,6 +176,7 @@ The system implements a triage pattern:
 
 3. **Run the application:**
    ```bash
+   cd src
    python app.py
    ```
 
@@ -169,28 +187,34 @@ The system implements a triage pattern:
 
 ```
 ag2-ui/
-├── app.py                    # FastAPI web server
-├── ag2_streaming_service.py  # AG2-to-web streaming bridge
-├── ag2_agents.py            # Pure AG2 agent implementation
-├── index.html               # Web interface
-├── requirements.txt         # Python dependencies
-├── .env                     # Environment variables
-└── README.md               # This file
+├── src/
+│   ├── app.py                    # FastAPI web server
+│   ├── ag2_streaming_service.py  # AG2-to-web streaming bridge
+│   ├── ag2_agents.py            # Pure AG2 agent implementation
+│   ├── index.html               # Web interface
+│   └── tech_file.txt           # Demo file for tech agent tool
+├── assets/
+│   └── demo.mp4                 # Demo video
+├── requirements.txt             # Python dependencies
+├── .env                        # Environment variables
+└── README.md                   # This file
 ```
 
 ## 🧪 Testing
 
 ### Test AG2 Agents Standalone
 ```bash
+cd src
 python ag2_agents.py
 ```
 *Note: Input requests won't work properly in CLI mode as they need the web queue system*
 
 ### Test Full Web Integration
-1. Run `python app.py`
+1. Run `cd src && python app.py`
 2. Open http://localhost:8888
 3. Type a message and interact with the agents
 4. Test the bidirectional communication when agents request input
+5. **Test Tech Agent Tools**: Ask tech agent to "read the tech file", "add a new step", or "modify existing content"
 
 ## 🔧 Customization
 
