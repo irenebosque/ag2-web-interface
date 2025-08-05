@@ -24,6 +24,10 @@
         .event-using_auto_reply { color: #6c757d; font-size: 0.9em; }
         .event-input_request { color: #dc3545; font-weight: bold; }
         .event-waiting_for_input { color: #fd7e14; font-weight: bold; background: #fff3cd; padding: 5px; border-radius: 3px; }
+        .event-tool_call { color: #8e44ad; font-weight: bold; background: #f4e8f7; padding: 5px; border-radius: 3px; }
+        .event-execute_function { color: #2c3e50; background: #ecf0f1; padding: 5px; border-radius: 3px; }
+        .event-executed_function { color: #27ae60; font-weight: bold; background: #d5f4e6; padding: 5px; border-radius: 3px; }
+        .event-tool_response { color: #3498db; background: #ebf3fd; padding: 5px; border-radius: 3px; }
         .timestamp { color: #6c757d; font-size: 0.85em; }
         .sender { color: #495057; font-weight: bold; }
         .uuid { color: #adb5bd; font-size: 0.8em; }
@@ -169,6 +173,39 @@
                         </div>`;
                     break;
                 
+                case 'tool_call':
+                    const toolCallInfo = extractToolCallInfo(event.content);
+                    formattedMessage = `
+                        <div class="event-tool_call">
+                            <span class="timestamp">[${timestamp}]</span> 
+                            🔧 <strong>Tool Call:</strong> ${toolCallInfo.function_name}(${toolCallInfo.arguments})
+                        </div>`;
+                    break;
+                
+                case 'execute_function':
+                    formattedMessage = `
+                        <div class="event-execute_function">
+                            <span class="timestamp">[${timestamp}]</span> 
+                            ⚡ <strong>Executing:</strong> ${event.content}
+                        </div>`;
+                    break;
+                
+                case 'executed_function':
+                    formattedMessage = `
+                        <div class="event-executed_function">
+                            <span class="timestamp">[${timestamp}]</span> 
+                            ✅ <strong>Tool Executed:</strong> ${event.content}
+                        </div>`;
+                    break;
+                
+                case 'tool_response':
+                    formattedMessage = `
+                        <div class="event-tool_response">
+                            <span class="timestamp">[${timestamp}]</span> 
+                            📤 <strong>Tool Response:</strong> ${event.content}
+                        </div>`;
+                    break;
+                
                 default:
                     formattedMessage = `
                         <div>
@@ -198,6 +235,19 @@
         function extractSpeaker(content) {
             const speakerMatch = content.match(/speaker='([^']+)'/);
             return speakerMatch ? speakerMatch[1] : 'unknown';
+        }
+
+        function extractToolCallInfo(content) {
+            if (!content) return { function_name: 'unknown', arguments: '' };
+            
+            // Extract function name from tool_calls
+            const funcMatch = content.match(/function=FunctionCall\(name='([^']+)'/);
+            const argsMatch = content.match(/arguments='([^']+)'/);
+            
+            return {
+                function_name: funcMatch ? funcMatch[1] : 'unknown',
+                arguments: argsMatch ? argsMatch[1] : ''
+            };
         }
 
         function updateContextVariables(contextData) {

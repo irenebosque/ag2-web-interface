@@ -24,8 +24,15 @@ from autogen.agentchat.group.patterns.auto import AutoPattern
 from autogen.agentchat.group import ContextVariables
 from autogen import UpdateSystemMessage
 from autogen.llm_config import LLMConfig
+from typing import Annotated
 
 load_dotenv()
+
+
+def tech_tool(message: Annotated[str, "A message to display"]) -> str:
+    """Simple tech tool that prints a message."""
+    print(f"⚙️Tech tool executed: {message}")
+    return f"Tool result: {message}"
 
 
 async def run_chat(message, max_rounds=15, context_variables=None):
@@ -81,7 +88,8 @@ async def run_chat(message, max_rounds=15, context_variables=None):
         tech_agent = ConversableAgent(
             name="tech_agent",
             system_message="""You solve technical problems like software bugs
-            and hardware issues.""",
+            and hardware issues. You have access to a tech_tool that can help you.""",
+            functions=[tech_tool],
         )
 
         # Specialist for general, non-technical support questions
