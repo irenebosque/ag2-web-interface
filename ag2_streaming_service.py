@@ -38,32 +38,39 @@ async def process_chat(messages, input_queue):
         AsyncGenerator: Event generator that yields SSE-formatted events
     """
     async def event_generator():
-        # Use global context variables when running chat
-        response = await run_chat(messages[-1]["content"], context_variables=global_context_variables)
+        try:
+            # Use global context variables when running chat
+            response = await run_chat(messages[-1]["content"], context_variables=global_context_variables)
 
-        # Send current context variables
-        yield f"data: {json.dumps({'type': 'context_variables', 'content': global_context_variables})}\n\n"
+            # Send current context variables
+            yield f"data: {json.dumps({'type': 'context_variables', 'content': global_context_variables})}\n\n"
 
-        async for event in response.events:
-            # Convert AG2 event to JSON-serializable dictionary
-            event_dict = {
-                'type': event.type,
-                'content': str(event.content) if hasattr(event, 'content') else None
-            }
-            
-            # Stream event to UI using Server-Sent Events format
-            yield f"data: {json.dumps(event_dict)}\n\n"
-            
-            # Handle special case: when agents request user input
-            if event.type == "input_request":
-                # Notify UI that we're waiting for user input
-                yield f"data: {json.dumps({'type': 'waiting_for_input'})}\n\n"
+            async for event in response.events:
+                # Convert AG2 event to JSON-serializable dictionary
+                event_dict = {
+                    'type': event.type,
+                    'content': str(event.content) if hasattr(event, 'content') else None
+                }
                 
-                # Wait for user response via the input queue (from HTTP POST /send_input)
-                user_input = await input_queue.get()
+                # Stream event to UI using Server-Sent Events format
+                yield f"data: {json.dumps(event_dict)}\n\n"
                 
-                # Send user response back to AG2 agents to continue conversation
-                await event.content.respond(user_input)
+                # Handle special case: when agents request user input
+                if event.type == "input_request":
+                    # Notify UI that we're waiting for user input
+                    yield f"data: {json.dumps({'type': 'waiting_for_input'})}\n\n"
+                    
+                    # Wait for user response via the input queue (from HTTP POST /send_input)
+                    user_input = await input_queue.get()
+                    
+                    # Send user response back to AG2 agents to continue conversation
+                    await event.content.respond(user_input)
+            
+        except asyncio.CancelledError:
+            # Handle client disconnection gracefully
+            pass
+        except Exception as e:
+            yield f"data: {json.dumps({'type': 'error', 'content': str(e)})}\n\n"
 
     return event_generator()
 
