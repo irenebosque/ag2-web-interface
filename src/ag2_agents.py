@@ -30,11 +30,12 @@ load_dotenv()
 
 
 def manage_tech_file(
-    action: Annotated[str, "Action to perform: 'read' or 'write'"],
-    content: Annotated[str, "Content to write (only needed for 'write' action)"] = ""
+    action: Annotated[str, "Action to perform: 'read', 'write', 'append', 'edit'"],
+    content: Annotated[str, "Content to write/append/replace (needed for 'write', 'append', 'edit')"] = "",
+    find_text: Annotated[str, "Text to find and replace (only for 'edit' action)"] = ""
 ) -> str:
-    """Manage tech_file.txt - read current content or write new content"""
-    file_path = "/mnt/c/Users/ilopez/Desktop/Proyectos/General/General-LOCAL/ag2-ui/tech_file.txt"
+    """Manage tech_file.txt - read, overwrite, append, or edit specific parts"""
+    file_path = os.path.join(os.path.dirname(__file__), "tech_file.txt")
     
     try:
         if action.lower() == "read":
@@ -46,11 +47,32 @@ def manage_tech_file(
         elif action.lower() == "write":
             with open(file_path, 'w', encoding='utf-8') as f:
                 f.write(content)
-            print(f"⚙️ Tech tool - Writing to file: {file_path}")
-            return f"Successfully wrote to file:\n{content}"
+            print(f"⚙️ Tech tool - Overwriting file: {file_path}")
+            return f"Successfully overwrote file with:\n{content}"
+        
+        elif action.lower() == "append":
+            with open(file_path, 'a', encoding='utf-8') as f:
+                f.write("\n" + content)
+            print(f"⚙️ Tech tool - Appending to file: {file_path}")
+            return f"Successfully appended to file:\n{content}"
+        
+        elif action.lower() == "edit":
+            # Read current content
+            with open(file_path, 'r', encoding='utf-8') as f:
+                file_content = f.read()
+            
+            # Replace text
+            if find_text in file_content:
+                new_content = file_content.replace(find_text, content)
+                with open(file_path, 'w', encoding='utf-8') as f:
+                    f.write(new_content)
+                print(f"⚙️ Tech tool - Editing file: {file_path}")
+                return f"Successfully replaced '{find_text}' with '{content}'"
+            else:
+                return f"Text '{find_text}' not found in file"
         
         else:
-            return f"Error: Invalid action '{action}'. Use 'read' or 'write'"
+            return f"Error: Invalid action '{action}'. Use 'read', 'write', 'append', or 'edit'"
             
     except Exception as e:
         return f"Error: {str(e)}"
@@ -109,9 +131,16 @@ async def run_chat(message, max_rounds=15, context_variables=None):
         tech_agent = ConversableAgent(
             name="tech_agent",
             system_message="""You solve technical problems like software bugs
-            and hardware issues. You have access to manage_tech_file tool that can read from and write to 
-            a tech_file.txt. Use manage_tech_file with action='read' to see the current file content, 
-            and action='write' with content parameter to modify the file based on user requests.""",
+            and hardware issues. You have access to manage_tech_file tool that can read from and modify 
+            a tech_file.txt. Available actions:
+            - action='read': See current file content
+            - action='write': Completely overwrite the file with new content  
+            - action='append': Add new lines to the end of the file
+            - action='edit': Replace specific text (use find_text parameter to specify what to replace, content for replacement)
+            
+            IMPORTANT: Always read the file first before making any modifications. This allows you to understand 
+            the current content and make informed decisions about what changes to apply. To delete text, use 'edit' 
+            with find_text as the text to delete and content as empty string.""",
             functions=[manage_tech_file],
         )
 

@@ -1,0 +1,3 @@
+1. reset the router
+2. 
+3. disconnect and connect from wifi
