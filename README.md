@@ -1,6 +1,9 @@
 # AG2 Web UI Integration
 
-A working implementation of AG2 (AutoGen 2.0) agents with a real-time web interface using **Server-Sent Events (SSE)** for agent-to-UI communication and **HTTP POST** for UI-to-agent communication.
+A working implementation of AG2 (AutoGen 2.0) agents with real-time web interfaces. This project includes **two different implementations**:
+
+1. **WebSocket Implementation** (main): Uses **WebSockets** for full bidirectional real-time communication
+2. **SSE Implementation** (alternative): Uses **Server-Sent Events (SSE)** for agent-to-UI communication and **HTTP POST** for UI-to-agent communication
 
 ## 🎬 Demo Video
 
@@ -15,7 +18,37 @@ AG2 documentation and examples focus mainly on CLI usage. Integrating AG2 with w
 
 ## 🏗️ Architecture
 
-The solution uses a clean 3-layer architecture:
+### WebSocket Implementation (Main)
+
+The WebSocket solution uses a clean 2-layer architecture with full bidirectional communication:
+
+```
+┌─────────────────┐   WebSocket     ┌─────────────────┐
+│                 │ ◄─────────────► │                 │
+│   Web UI        │  Bidirectional  │  FastAPI App    │
+│  (index.html)   │  Real-time      │ (main_server.py)│
+│                 │  Communication  │                 │
+└─────────────────┘                 └─────────────────┘
+                                             │ websocket_endpoint()
+                                             │ + event streaming
+                                             ▼
+                                    ┌─────────────────────────────────┐
+                                    │        AG2 Agents               │
+                                    │ (simple_vacation_agents.py)     │
+                                    │                                 │
+                                    │  start_chat() ──────────────►   │
+                                    │  ├─ vacation_planner            │
+                                    │  ├─ plan_modifier               │
+                                    │  └─ reviewer_user               │
+                                    └─────────────────────────────────┘
+```
+
+**Communication Protocol:**
+- **UI ↔ FastAPI**: WebSocket (bidirectional real-time user messages, agent events, and input responses)
+
+### SSE Implementation (Alternative)
+
+The SSE solution uses a 3-layer architecture:
 
 ```
 ┌─────────────────┐   HTTP POST     ┌─────────────────┐
@@ -175,24 +208,35 @@ The agent is configured to **always read the file first** before making any modi
    ```
 
 3. **Run the application:**
+
+   **WebSocket Version (Recommended):**
+   ```bash
+   cd src/websockets_way
+   python main_server.py
+   ```
+   Access at: http://localhost:8000
+
+   **SSE Version (Alternative):**
    ```bash
    cd src
    python app.py
    ```
-
-4. **Access the interface:**
-   Open http://localhost:8888 in your browser
+   Access at: http://localhost:8888
 
 ## 📁 File Structure
 
 ```
 ag2-ui/
 ├── src/
-│   ├── app.py                    # FastAPI web server
-│   ├── ag2_streaming_service.py  # AG2-to-web streaming bridge
+│   ├── app.py                    # FastAPI web server (SSE implementation)
+│   ├── ag2_streaming_service.py  # AG2-to-web streaming bridge (SSE)
 │   ├── ag2_agents.py            # Pure AG2 agent implementation
-│   ├── index.html               # Web interface
-│   └── tech_file.txt           # Demo file for tech agent tool
+│   ├── index.html               # Web interface (SSE)
+│   ├── tech_file.txt           # Demo file for tech agent tool
+│   └── websockets_way/          # WebSocket implementation
+│       ├── main_server.py       # FastAPI WebSocket server
+│       ├── simple_vacation_agents.py  # AG2 vacation planning agents
+│       └── index.html           # WebSocket web interface
 ├── assets/
 │   └── demo.mp4                 # Demo video
 ├── requirements.txt             # Python dependencies
@@ -203,6 +247,14 @@ ag2-ui/
 ## 🧪 Testing
 
 ### Test AG2 Agents Standalone
+
+**WebSocket Version:**
+```bash
+cd src/websockets_way
+python simple_vacation_agents.py
+```
+
+**SSE Version:**
 ```bash
 cd src
 python ag2_agents.py
@@ -210,6 +262,14 @@ python ag2_agents.py
 *Note: Input requests won't work properly in CLI mode as they need the web queue system*
 
 ### Test Full Web Integration
+
+**WebSocket Version (Recommended):**
+1. Run `cd src/websockets_way && python main_server.py`
+2. Open http://localhost:8000
+3. Type a message and interact with the vacation planning agents
+4. Test the bidirectional communication when agents request input
+
+**SSE Version:**
 1. Run `cd src && python app.py`
 2. Open http://localhost:8888
 3. Type a message and interact with the agents

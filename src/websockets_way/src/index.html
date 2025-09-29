@@ -1,0 +1,49 @@
+<!DOCTYPE html>
+<html>
+<head><title>Vacation Planner</title></head>
+<body>
+    <h1>Vacation Planner</h1>
+    <div id="messages"></div>
+    <button onclick="start()" id="btn">Start</button>
+    <input type="text" id="input" style="display:none;">
+    <button onclick="send()" id="sendBtn" style="display:none;">Send</button>
+
+    <script>
+        let ws = null;
+        let waiting = false;
+
+        function add(text) {
+            document.getElementById('messages').innerHTML += '<div>' + text + '</div>';
+        }
+
+        function start() {
+            ws = new WebSocket('ws://localhost:8000/ws');
+
+            ws.onmessage = function(event) {
+                const data = JSON.parse(event.data);
+
+                if (data.type === 'input_needed') {
+                    add('Input needed');
+                    document.getElementById('input').style.display = 'block';
+                    document.getElementById('sendBtn').style.display = 'block';
+                    waiting = true;
+                } else {
+                    add(data.type + ': ' + (data.content || ''));
+                }
+            };
+        }
+
+        function send() {
+            if (waiting) {
+                const input = document.getElementById('input').value;
+                ws.send(input);
+                add('You: ' + input);
+                document.getElementById('input').value = '';
+                document.getElementById('input').style.display = 'none';
+                document.getElementById('sendBtn').style.display = 'none';
+                waiting = false;
+            }
+        }
+    </script>
+</body>
+</html>
