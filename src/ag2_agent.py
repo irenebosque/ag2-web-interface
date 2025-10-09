@@ -262,7 +262,7 @@ My preferences:
 Please create a vacation plan for me!"""
 
     async for event in agent.chat(message):
-        print(f"\n📡 Event: {event.type.value}")
+        print(f"\n📡 Event: {event.type}")
         print(f"   UUID: {event.uuid}")
         print(f"   Content: {str(event.content)[:200]}...")
 

@@ -7,11 +7,11 @@ del transporte (WebSockets, HTTP, CLI, etc.)
 
 from abc import ABC, abstractmethod
 from typing import AsyncIterator, Dict, Any, Optional
-from dataclasses import dataclass, field
 from enum import Enum
+from pydantic import BaseModel, Field, field_serializer
 
 
-class AgentEventType(Enum):
+class AgentEventType(str, Enum):
     """Tipos de eventos que puede emitir un agente"""
     MESSAGE = "message"
     INPUT_REQUEST = "input_request"
@@ -22,47 +22,39 @@ class AgentEventType(Enum):
     TOOL_CALL = "tool_call"
 
 
-@dataclass
-class AgentEvent:
+class AgentEvent(BaseModel):
     """
     Evento emitido por el agente.
 
     El agente emite eventos y no sabe nada sobre el transporte.
     La capa de transporte (WebSocket, HTTP, etc.) decide cómo serializar y enviar.
+
+    Pydantic maneja automáticamente:
+    - Validación de tipos
+    - Serialización a dict/JSON
+    - Conversión de tipos complejos
     """
     type: AgentEventType
     uuid: str
     content: Any
-    metadata: Optional[Dict[str, Any]] = field(default_factory=dict)
+    metadata: Optional[Dict[str, Any]] = Field(default_factory=dict)
 
-    def to_dict(self) -> Dict[str, Any]:
-        """
-        Serializa el evento a un diccionario JSON-safe.
-
-        IMPORTANTE: Asegura que todos los valores sean serializables a JSON.
-        Convierte objetos complejos a strings.
-        """
-        def make_serializable(obj):
-            """Convierte cualquier objeto a algo serializable en JSON"""
-            if obj is None:
-                return None
-            if isinstance(obj, (str, int, float, bool)):
-                return obj
-            if isinstance(obj, dict):
-                return {k: make_serializable(v) for k, v in obj.items()}
-            if isinstance(obj, (list, tuple)):
-                return [make_serializable(item) for item in obj]
-            if isinstance(obj, Enum):
-                return obj.value
-            # Para cualquier otro objeto, convertir a string
-            return str(obj)
-
-        return {
-            "type": self.type.value if isinstance(self.type, Enum) else str(self.type),
-            "uuid": str(self.uuid),
-            "content": str(self.content) if self.content else "",
-            "metadata": make_serializable(self.metadata) if self.metadata else {}
+    class Config:
+        # Permite usar Enums directamente
+        use_enum_values = True
+        # Serializa cualquier tipo a JSON-safe automáticamente
+        json_encoders = {
+            Enum: lambda e: e.value
         }
+
+    @field_serializer('content')
+    def serialize_content(self, content: Any) -> str:
+        """Convierte el contenido a string si no es serializable"""
+        if content is None:
+            return ""
+        if isinstance(content, (str, int, float, bool)):
+            return content
+        return str(content)
 
 
 class BaseAgent(ABC):

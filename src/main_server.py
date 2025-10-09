@@ -69,10 +69,10 @@ Please create a vacation plan for me!"""
         # El agente NO sabe que estamos usando WebSockets
         async for event in agent.chat(user_message):
 
-            print(f"📡 Server received event: {event.type.value} (UUID: {event.uuid})")
+            print(f"📡 Server received event: {event.type} (UUID: {event.uuid})")
 
-            # Usar el método to_dict() que garantiza JSON-safe serialization
-            event_data = event.to_dict()
+            # Pydantic serializa automáticamente a dict JSON-safe
+            event_data = event.model_dump()
 
             await websocket.send_json(event_data)
 
@@ -137,7 +137,7 @@ async def http_chat_endpoint(message: dict):
 
     try:
         async for event in agent.chat(message.get("message", "")):
-            events.append(event.to_dict())
+            events.append(event.model_dump())
 
             # En HTTP, no podemos esperar input del usuario de forma interactiva
             # Esto es una limitación del protocolo HTTP, no del agente
