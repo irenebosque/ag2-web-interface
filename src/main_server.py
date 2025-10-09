@@ -15,7 +15,7 @@ from fastapi import FastAPI, WebSocket, WebSocketDisconnect
 from fastapi.responses import FileResponse
 import os
 import json
-from ag2_agent import Ag2VacationAgent
+from ag2_agent import Ag2Agent
 from base_agent import AgentEventType
 
 app = FastAPI(title="AG2 Vacation Planner - Decoupled Architecture")
@@ -42,7 +42,7 @@ async def websocket_endpoint(websocket: WebSocket):
     await websocket.accept()
 
     # Crear instancia del agente (podría ser cualquier implementación de BaseAgent)
-    agent = Ag2VacationAgent(config={
+    agent = Ag2Agent(config={
         "max_rounds": 15,
         "temperature": 0.7
     })
@@ -132,7 +132,7 @@ async def http_chat_endpoint(message: dict):
 
     Demuestra que el agente funciona con cualquier transporte.
     """
-    agent = Ag2VacationAgent()
+    agent = Ag2Agent()
     events = []
 
     try:

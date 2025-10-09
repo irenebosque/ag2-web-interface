@@ -12,7 +12,7 @@ from simple_vacation_agents import start_a_run_group_chat
 import asyncio
 
 
-class Ag2VacationAgent(BaseAgent):
+class Ag2Agent(BaseAgent):
     """
     Implementación de BaseAgent usando AG2 para planificación de vacaciones.
 
@@ -249,7 +249,7 @@ async def test_ag2_agent():
     """
     print("🏖️ Testing AG2 Agent (CLI mode)\n")
 
-    agent = Ag2VacationAgent()
+    agent = Ag2Agent()
 
     message = """I want to plan a vacation!
 
