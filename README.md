@@ -1,9 +1,12 @@
 # AG2 Web UI Integration
 
-A working implementation of AG2 (AutoGen 2.0) agents with real-time web interfaces. This project includes **two different implementations**:
+A working implementation of AG2 (AutoGen 2.0) agents with real-time web interfaces. This project demonstrates **multiple architectural approaches**:
 
-1. **WebSocket Implementation** (main): Uses **WebSockets** for full bidirectional real-time communication
-2. **SSE Implementation** (alternative): Uses **Server-Sent Events (SSE)** for agent-to-UI communication and **HTTP POST** for UI-to-agent communication
+1. **New Interface Way** (recommended): Decoupled architecture following **Dependency Inversion Principle** with abstract interfaces
+2. **WebSocket Implementation** (legacy): Direct WebSocket integration
+3. **SSE + HTTP Implementation** (legacy): Server-Sent Events for streaming with HTTP POST for user input
+
+> **Note:** The legacy implementations (`src/legacy/`) are kept for reference but the recommended approach is the new decoupled architecture in `src/new_interface_way/`
 
 ## 🎬 Demo Video
 
@@ -14,185 +17,57 @@ https://github.com/user-attachments/assets/3e5e83c0-7407-4529-b748-b45aee2a93fe
 
 ## The Problem This Solves
 
-AG2 documentation and examples focus mainly on CLI usage. Integrating AG2 with web UIs requires handling async agent events and bidirectional communication, which isn't well documented. This project demonstrates a working solution using `a_run_group_chat` with event streaming.
+AG2 documentation and examples focus mainly on CLI usage. Integrating AG2 with web UIs requires handling async agent events and bidirectional communication, which isn't well documented. This project demonstrates working solutions, including a **decoupled architecture** that follows SOLID principles for better testability and maintainability.
 
 ## 🏗️ Architecture
 
-### WebSocket Implementation (Main)
+### New Interface Way (Recommended - Decoupled Architecture)
 
-The WebSocket solution uses a clean 2-layer architecture with full bidirectional communication:
-
-```
-┌─────────────────┐   WebSocket     ┌─────────────────┐
-│                 │ ◄─────────────► │                 │
-│   Web UI        │  Bidirectional  │  FastAPI App    │
-│  (index.html)   │  Real-time      │ (main_server.py)│
-│                 │  Communication  │                 │
-└─────────────────┘                 └─────────────────┘
-                                             │ websocket_endpoint()
-                                             │ + event streaming
-                                             ▼
-                                    ┌─────────────────────────────────┐
-                                    │        AG2 Agents               │
-                                    │ (simple_vacation_agents.py)     │
-                                    │                                 │
-                                    │  start_chat() ──────────────►   │
-                                    │  ├─ vacation_planner            │
-                                    │  ├─ plan_modifier               │
-                                    │  └─ reviewer_user               │
-                                    └─────────────────────────────────┘
-```
-
-**Communication Protocol:**
-- **UI ↔ FastAPI**: WebSocket (bidirectional real-time user messages, agent events, and input responses)
-
-### SSE Implementation (Alternative)
-
-The SSE solution uses a 3-layer architecture:
+This implementation follows the **Dependency Inversion Principle** for clean separation of concerns:
 
 ```
-┌─────────────────┐   HTTP POST     ┌─────────────────┐
-│                 │ ──────────────► │                 │
-│   Web UI        │                 │  FastAPI App    │
-│  (index.html)   │ ◄────────────── │   (app.py)      │
-│                 │      SSE        │                 │
-└─────────────────┘                 └─────────────────┘
-                                             │ process_chat()
-                                             │ + input_queue
-                                             ▼
-                                    ┌─────────────────┐
-                                    │ Streaming       │ run_chat()
-                                    │ Service         │ ──────────┐
-                                    │(ag2_streaming_  │           │
-                                    │ service.py)     │           │
-                                    └─────────────────┘           │
-                                             ▲                    │
-                                             │ Async Events       │
-                                             │ + JSON Convert     │
-                                             │                    ▼
-                                    ┌─────────────────────────────────┐
-                                    │        AG2 Agents               │
-                                    │      (ag2_agents.py)            │
-                                    │                                 │
-                                    │  a_run_group_chat() ────────►   │
-                                    │  ├─ triage_agent                │
-                                    │  ├─ tech_agent                  │
-                                    │  ├─ general_agent               │
-                                    │  └─ user (input_mode=ALWAYS)    │
-                                    └─────────────────────────────────┘
+┌─────────────────────────────────────────────────┐
+│          Capa de Transporte                     │
+│  (WebSocket, HTTP, CLI, gRPC, etc.)             │
+│                                                  │
+│  - Maneja comunicación con el cliente           │
+│  - Serializa eventos                            │
+│  - AQUÍ se bloquea esperando input              │
+└────────────────┬────────────────────────────────┘
+                 │ depende de ↓
+┌────────────────▼────────────────────────────────┐
+│          BaseAgent (Interfaz ABC)               │
+│                                                  │
+│  - chat(message) -> AsyncIterator[AgentEvent]   │
+│  - respond(event_id, message)                   │
+│  - NO conoce el transporte                      │
+└────────────────▲────────────────────────────────┘
+                 │ implementa ↑
+┌────────────────┴────────────────────────────────┐
+│          Ag2VacationAgent                       │
+│                                                  │
+│  - Implementación concreta usando AG2           │
+│  - Emite eventos vía yield                      │
+│  - NO bloquea esperando input                   │
+│  - NO conoce WebSockets                         │
+└─────────────────────────────────────────────────┘
 ```
 
-**Communication Protocols:**
-- **UI → FastAPI**: HTTP POST (user messages, input responses)
-- **FastAPI → UI**: Server-Sent Events (real-time agent events and messages)
+**Key Benefits:**
+- ✅ **Decoupled**: AG2 logic is independent of transport layer (WebSocket, HTTP, CLI)
+- ✅ **Testable**: Can test agent logic without network infrastructure
+- ✅ **Reusable**: Same agent works with any transport
+- ✅ **Extensible**: Easy to add new agent implementations
 
-### Layer Details
+**Location:** `src/new_interface_way/`
 
-1. **Web UI Layer** (`index.html`):
-   - Simple HTML interface with JavaScript
-   - Connects via Server-Sent Events for real-time agent messages
-   - Sends user input via HTTP POST when agents request it
-   - Single input field with intelligent send button
+---
 
-2. **FastAPI App Layer** (`app.py`):
-   - Provides HTTP endpoints for chat initiation and user input
-   - Manages asyncio Queue for bidirectional communication
-   - Serves the web interface
-   - Handles CORS and web server concerns
+## 📚 Legacy Implementations
 
-3. **Streaming Service Layer** (`ag2_streaming_service.py`):
-   - **This is the crucial bridge layer**
-   - Converts AG2 events to JSON-serializable Server-Sent Events
-   - Handles the complex async coordination between web requests and AG2 events
-   - Manages input_request events by coordinating with the UI queue
-
-4. **Pure AG2 Layer** (`ag2_agents.py`):
-   - Contains pure AG2 agent logic without web dependencies
-   - Can be tested standalone from command line
-   - Uses `a_run_group_chat` with `AutoPattern` for event streaming
-   - Implements triage pattern with specialized agents
-
-## Key Implementation: `a_run_group_chat` + Event Streaming
-
-The main approach that enables web integration:
-
-```python
-# This is what enables web UI integration!
-response = await a_run_group_chat(
-    pattern=pattern, 
-    messages=message, 
-    max_rounds=max_rounds
-)
-
-# The response.events async iterator is the key
-async for event in response.events:
-    # Convert to web-friendly format
-    yield f"data: {json.dumps(event_dict)}\n\n"
-```
-
-**How it works:**
-- `a_run_group_chat` returns an async response with an event stream
-- The event stream includes all agent interactions, state changes, and input requests
-- Events can be iterated in real-time and streamed to the web UI via SSE
-- When agents request input (`event.type == "input_request"`), coordination happens via async queues
-
-## 🚀 Communication Flow
-
-### 1. Starting a Conversation (AG2 → UI via SSE)
-
-```
-User types message → POST /chat → AG2 agents start → Events stream via SSE
-```
-
-1. User enters message in web UI
-2. JavaScript sends HTTP POST to `/chat`
-3. FastAPI calls `process_chat()` with message and input queue
-4. `ag2_streaming_service` calls `run_chat()` from `ag2_agents`
-5. AG2 starts conversation and returns async event stream
-6. Events are converted to JSON and streamed via Server-Sent Events
-7. Web UI receives real-time updates of agent conversations
-
-### 2. User Input Request (Bidirectional via SSE + HTTP)
-
-```
-Agent needs input → SSE "waiting_for_input" → User types → POST /send_input → AG2 continues
-```
-
-1. AG2 agent hits `input_request` event (when human_input_mode="ALWAYS")
-2. Streaming service sends `waiting_for_input` event via SSE
-3. Web UI shows input prompt to user
-4. User types response and submits
-5. JavaScript sends HTTP POST to `/send_input`
-6. FastAPI queues user input via `input_queue.put()`
-7. Streaming service receives input via `input_queue.get()`
-8. Input is sent back to AG2 agents via `event.content.respond()`
-9. AG2 continues conversation with user input
-
-## 📋 Agent Configuration
-
-The system implements a triage pattern:
-
-- **triage_agent**: Routes queries to appropriate specialists based on context variables
-- **tech_agent**: Handles technical issues and troubleshooting with file management capabilities
-- **general_agent**: Handles non-technical support questions
-- **user**: Human user with `human_input_mode="ALWAYS"` for interactive conversations
-
-### 🔧 Tech Agent Tools
-
-The tech_agent includes a powerful file management tool (`manage_tech_file`) that can:
-
-- **`action='read'`**: Read current file content to understand the state
-- **`action='write'`**: Completely overwrite file with new content
-- **`action='append'`**: Add new lines to the end of the file  
-- **`action='edit'`**: Replace specific text (find and replace functionality)
-
-**Usage Examples:**
-- "Read the tech file" → Agent uses `action='read'`
-- "Add a new troubleshooting step" → Agent reads first, then uses `action='append'`
-- "Remove the line about restarting" → Agent reads first, then uses `action='edit'` with `find_text`
-- "Rewrite the entire procedure" → Agent uses `action='write'`
-
-The agent is configured to **always read the file first** before making any modifications, ensuring informed decisions about changes.
+Earlier implementations are kept in `src/legacy/` for reference:
+- **WebSocket** (`src/legacy/websockets_way/`): Direct WebSocket integration with AG2 agents
+- **SSE + HTTP** (`src/legacy/old_sse_events_http/`): Server-Sent Events for streaming with HTTP POST for input
 
 ## 🛠️ Setup and Installation
 
@@ -209,34 +84,28 @@ The agent is configured to **always read the file first** before making any modi
 
 3. **Run the application:**
 
-   **WebSocket Version (Recommended):**
+   **New Interface Way (Recommended):**
    ```bash
-   cd src/websockets_way
+   cd src/new_interface_way
    python main_server.py
    ```
    Access at: http://localhost:8000
 
-   **SSE Version (Alternative):**
-   ```bash
-   cd src
-   python app.py
-   ```
-   Access at: http://localhost:8888
-
 ## 📁 File Structure
 
 ```
-ag2-ui/
+ag2-web-interface/
 ├── src/
-│   ├── app.py                    # FastAPI web server (SSE implementation)
-│   ├── ag2_streaming_service.py  # AG2-to-web streaming bridge (SSE)
-│   ├── ag2_agents.py            # Pure AG2 agent implementation
-│   ├── index.html               # Web interface (SSE)
-│   ├── tech_file.txt           # Demo file for tech agent tool
-│   └── websockets_way/          # WebSocket implementation
-│       ├── main_server.py       # FastAPI WebSocket server
-│       ├── simple_vacation_agents.py  # AG2 vacation planning agents
-│       └── index.html           # WebSocket web interface
+│   ├── new_interface_way/       # Recommended decoupled architecture
+│   │   ├── base_agent.py        # Abstract interface (ABC)
+│   │   ├── ag2_agent.py         # AG2 implementation
+│   │   ├── main_server.py       # WebSocket transport layer
+│   │   ├── simple_vacation_agents.py  # AG2 agent configuration
+│   │   ├── index.html           # Basic WebSocket client
+│   │   └── index_improved.html  # Enhanced WebSocket client
+│   └── legacy/                  # Previous implementations
+│       ├── websockets_way/      # Direct WebSocket integration
+│       └── old_sse_events_http/ # SSE + HTTP implementation
 ├── assets/
 │   └── demo.mp4                 # Demo video
 ├── requirements.txt             # Python dependencies
@@ -246,57 +115,27 @@ ag2-ui/
 
 ## 🧪 Testing
 
-### Test AG2 Agents Standalone
+### Test Agent Logic Without Web Infrastructure
 
-**WebSocket Version:**
+One of the key benefits of the decoupled architecture:
+
 ```bash
-cd src/websockets_way
-python simple_vacation_agents.py
+cd src/new_interface_way
+python ag2_agent.py
 ```
 
-**SSE Version:**
-```bash
-cd src
-python ag2_agents.py
-```
-*Note: Input requests won't work properly in CLI mode as they need the web queue system*
+This demonstrates that the agent logic works independently of the transport layer.
 
 ### Test Full Web Integration
 
-**WebSocket Version (Recommended):**
-1. Run `cd src/websockets_way && python main_server.py`
+1. Run the server:
+   ```bash
+   cd src/new_interface_way
+   python main_server.py
+   ```
 2. Open http://localhost:8000
-3. Type a message and interact with the vacation planning agents
-4. Test the bidirectional communication when agents request input
-
-**SSE Version:**
-1. Run `cd src && python app.py`
-2. Open http://localhost:8888
-3. Type a message and interact with the agents
-4. Test the bidirectional communication when agents request input
-5. **Test Tech Agent Tools**: Ask tech agent to "read the tech file", "add a new step", or "modify existing content"
-
-## 🔧 Customization
-
-### Adding New Agents
-1. Create new `ConversableAgent` in `ag2_agents.py`
-2. Add to the `agents` list in `AutoPattern`
-3. Update system messages as needed
-
-### Modifying UI
-- Edit `index.html` for interface changes
-- Modify JavaScript event handlers for different behaviors
-- Customize CSS styling in the `<style>` section
-
-### Changing Models
-Update the `LLMConfig` in `ag2_agents.py`:
-```python
-llm_config = LLMConfig(
-    api_type="openai",
-    model="gpt-4-mini",  # Change model here
-    api_key=os.getenv("OPENAI_API_KEY")
-)
-```
+3. Interact with the vacation planning agents
+4. Test bidirectional communication when agents request input
 
 ## 🚨 Important Notes
 
@@ -309,11 +148,197 @@ llm_config = LLMConfig(
 
 This implementation demonstrates:
 1. How to bridge AG2's async system with web interfaces
-2. Real-time bidirectional communication between agents and users  
+2. Real-time bidirectional communication between agents and users
 3. Clean architecture separating concerns
 4. A practical working example for web-based AG2 integration
 
 Using `a_run_group_chat` with event streaming enables building web-based AI agent interfaces with proper real-time interaction.
+
+---
+
+## 📖 Deep Dive: Decoupled Architecture
+
+### 🎯 The Problem with Direct Coupling
+
+The legacy implementations directly coupled AG2 with the transport layer:
+
+```python
+# ❌ PROBLEM: AG2 blocked on WebSocket
+async for event in response.events:
+    if event.type == 'input_request':
+        user_input = await websocket.receive_text()  # AG2 thread blocked!
+        await event.content.respond(user_input)
+```
+
+**Issues:**
+- ❌ AG2 directly coupled to WebSockets
+- ❌ Difficult to test without network infrastructure
+- ❌ Cannot reuse with other transports (HTTP, gRPC, CLI)
+- ❌ AG2 thread blocked waiting for WebSocket input
+
+### ✅ The Solution: Dependency Inversion
+
+The new architecture inverts dependencies using abstract interfaces:
+
+```
+┌─────────────────────────────────────────────────┐
+│          Transport Layer                        │
+│  (WebSocket, HTTP, CLI, gRPC, etc.)             │
+│  - Handles client communication                 │
+│  - Serializes events                            │
+│  - Blocking happens HERE (correct place)        │
+└────────────────┬────────────────────────────────┘
+                 │ depends on ↓
+┌────────────────▼────────────────────────────────┐
+│          BaseAgent (ABC Interface)              │
+│  - chat(message) -> AsyncIterator[AgentEvent]   │
+│  - respond(event_id, message)                   │
+│  - NO knowledge of transport                    │
+└────────────────▲────────────────────────────────┘
+                 │ implements ↑
+┌────────────────┴────────────────────────────────┐
+│          Ag2VacationAgent                       │
+│  - Concrete AG2 implementation                  │
+│  - Emits events via yield                       │
+│  - Does NOT block on input                      │
+│  - NO knowledge of WebSockets                   │
+└─────────────────────────────────────────────────┘
+```
+
+### 🔑 Key Concept: Blocking in the Right Layer
+
+```python
+# In ag2_agent.py (Does NOT block)
+async def chat(self, message):
+    async for event in ag2_response.events:
+        if event.type == 'input_request':
+            yield AgentEvent(...)  # Just emit event
+            # Use Future to wait for respond() call
+            future = asyncio.Future()
+            await future  # Wait for respond() to resolve it
+```
+
+```python
+# In main_server.py (Blocking is CORRECT here)
+async for event in agent.chat(message):
+    if event.type == AgentEventType.INPUT_REQUEST:
+        await websocket.send_json({...})
+        user_input = await websocket.receive_text()  # ✅ Block in transport layer
+        await agent.respond(event.uuid, user_input)
+```
+
+### 📊 Separation of Responsibilities
+
+| Component | Responsibility | Does NOT Know About |
+|-----------|---------------|-------------------|
+| `BaseAgent` | Define contract | Implementation details |
+| `Ag2Agent` | AG2 business logic | WebSockets, HTTP, CLI |
+| `main_server.py` | WebSocket transport | AG2 internal details |
+| `index.html` | UI client | Business logic |
+
+### 🎨 Benefits of This Architecture
+
+#### ✅ Decoupling
+AG2 logic is completely independent of transport. Easy to swap WebSocket for HTTP, gRPC, or CLI.
+
+#### ✅ Testability
+```python
+# Test without any network infrastructure
+agent = Ag2VacationAgent()
+events = []
+async for event in agent.chat("test"):
+    events.append(event)
+assert len(events) > 0
+```
+
+#### ✅ Reusability
+Same agent, different transports:
+
+```python
+# WebSocket
+async for event in agent.chat(msg):
+    await websocket.send_json(event.to_dict())
+
+# HTTP
+events = [e.to_dict() async for e in agent.chat(msg)]
+return {"events": events}
+
+# CLI
+async for event in agent.chat(msg):
+    print(event.content)
+```
+
+#### ✅ Extensibility
+```python
+# New implementation without touching transport layer
+class OpenAIAgent(BaseAgent):
+    async def chat(self, message):
+        # OpenAI Assistants API implementation
+        yield AgentEvent(...)
+
+# Server works unchanged
+agent = OpenAIAgent()  # Or Ag2VacationAgent()
+async for event in agent.chat(message):
+    await websocket.send_json(event.to_dict())
+```
+
+### 🔄 Execution Flow
+
+```
+1. Client connects via WebSocket
+         ↓
+2. main_server.py creates Ag2VacationAgent()
+         ↓
+3. Calls agent.chat(message)
+         ↓
+4. Ag2Agent starts AG2 and emits events
+         ↓
+5. main_server receives events via yield
+         ↓
+6. main_server sends events to client
+         ↓
+7. If INPUT_REQUEST event:
+   - Client shows input prompt
+   - User types response
+   - Client sends via WebSocket
+   - main_server calls agent.respond()
+   - Ag2Agent resolves Future and continues
+         ↓
+8. When AG2 completes, emits COMPLETED
+         ↓
+9. Client receives COMPLETED event
+```
+
+### 🎓 SOLID Principles Applied
+
+1. **S**ingle Responsibility
+   - `BaseAgent`: Define contract
+   - `Ag2Agent`: Business logic
+   - `main_server`: Transport
+
+2. **O**pen/Closed
+   - Open for extension: New BaseAgent implementations
+   - Closed for modification: main_server unchanged
+
+3. **L**iskov Substitution
+   - Any BaseAgent implementation works in main_server
+
+4. **I**nterface Segregation
+   - Specific interfaces (chat, respond, upload_file)
+
+5. **D**ependency Inversion ⭐
+   - High-level (main_server) doesn't depend on low-level (AG2)
+   - Both depend on abstraction (BaseAgent)
+
+### 📝 Comparison: Legacy vs Decoupled
+
+| Aspect | Legacy | Decoupled |
+|--------|--------|-----------|
+| **Coupling** | AG2 ↔ WebSocket | AG2 ← BaseAgent → WebSocket |
+| **Testable** | ❌ Needs WebSocket | ✅ Simple unit tests |
+| **Reusable** | ❌ Only WebSocket | ✅ Any transport |
+| **Blocking** | ❌ In AG2 layer | ✅ In transport layer |
+| **Extensible** | ❌ Difficult | ✅ Easy (inherit BaseAgent) |
 
 
 
